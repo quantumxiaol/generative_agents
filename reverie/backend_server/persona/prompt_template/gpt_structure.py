@@ -6,12 +6,36 @@ Description: Wrapper functions for calling OpenAI APIs.
 """
 import json
 import random
-import openai
+from openai import OpenAI
 import time 
 
 from utils import *
 
-openai.api_key = openai_api_key
+# 初始化 OpenAI 客户端
+# 注意：如果 base_url 包含完整路径，需要调整为仅基础 URL
+client_base_url = base_url
+if client_base_url is not None:
+    # 移除可能的端点路径，只保留基础 URL
+    if '/chat/completions' in client_base_url:
+        client_base_url = client_base_url.split('/chat/completions')[0]
+    # 确保以 /v1 结尾（OpenAI 客户端需要）
+    if client_base_url and not client_base_url.endswith('/v1'):
+        if '/v1' in client_base_url:
+            client_base_url = client_base_url.split('/v1')[0] + '/v1'
+        else:
+            client_base_url = client_base_url.rstrip('/') + '/v1'
+
+client = OpenAI(api_key=openai_api_key, base_url=client_base_url)
+
+# 模型映射：将已弃用的模型名称映射到新模型
+MODEL_MAPPING = {
+    "text-davinci-002": "gpt-3.5-turbo-instruct",
+    "text-davinci-003": "gpt-3.5-turbo-instruct",
+}
+
+def map_model_name(model_name):
+    """将旧模型名称映射到新模型名称"""
+    return MODEL_MAPPING.get(model_name, model_name)
 
 def temp_sleep(seconds=0.1):
   time.sleep(seconds)
@@ -19,11 +43,11 @@ def temp_sleep(seconds=0.1):
 def ChatGPT_single_request(prompt): 
   temp_sleep()
 
-  completion = openai.ChatCompletion.create(
+  completion = client.chat.completions.create(
     model="gpt-3.5-turbo", 
     messages=[{"role": "user", "content": prompt}]
   )
-  return completion["choices"][0]["message"]["content"]
+  return completion.choices[0].message.content
 
 
 # ============================================================================
@@ -45,14 +69,15 @@ def GPT4_request(prompt):
   temp_sleep()
 
   try: 
-    completion = openai.ChatCompletion.create(
+    completion = client.chat.completions.create(
     model="gpt-4", 
     messages=[{"role": "user", "content": prompt}]
     )
-    return completion["choices"][0]["message"]["content"]
+    return completion.choices[0].message.content
   
-  except: 
-    print ("ChatGPT ERROR")
+  except Exception as e: 
+    error_msg = f"GPT4 API Error: {type(e).__name__}: {str(e)}"
+    print(error_msg)
     return "ChatGPT ERROR"
 
 
@@ -70,14 +95,15 @@ def ChatGPT_request(prompt):
   """
   # temp_sleep()
   try: 
-    completion = openai.ChatCompletion.create(
+    completion = client.chat.completions.create(
     model="gpt-3.5-turbo", 
     messages=[{"role": "user", "content": prompt}]
     )
-    return completion["choices"][0]["message"]["content"]
+    return completion.choices[0].message.content
   
-  except: 
-    print ("ChatGPT ERROR")
+  except Exception as e: 
+    error_msg = f"ChatGPT API Error: {type(e).__name__}: {str(e)}"
+    print(error_msg)
     return "ChatGPT ERROR"
 
 
@@ -208,8 +234,10 @@ def GPT_request(prompt, gpt_parameter):
   """
   temp_sleep()
   try: 
-    response = openai.Completion.create(
-                model=gpt_parameter["engine"],
+    # 映射模型名称到新模型
+    model_name = map_model_name(gpt_parameter["engine"])
+    response = client.completions.create(
+                model=model_name,
                 prompt=prompt,
                 temperature=gpt_parameter["temperature"],
                 max_tokens=gpt_parameter["max_tokens"],
@@ -219,9 +247,13 @@ def GPT_request(prompt, gpt_parameter):
                 stream=gpt_parameter["stream"],
                 stop=gpt_parameter["stop"],)
     return response.choices[0].text
-  except: 
-    print ("TOKEN LIMIT EXCEEDED")
-    return "TOKEN LIMIT EXCEEDED"
+  except Exception as e: 
+    error_msg = f"API Error: {type(e).__name__}: {str(e)}"
+    print(error_msg)
+    # 如果是 token 相关错误，返回特定消息
+    if "token" in str(e).lower() or "length" in str(e).lower():
+      return "TOKEN LIMIT EXCEEDED"
+    return f"API ERROR: {str(e)}"
 
 
 def generate_prompt(curr_input, prompt_lib_file): 
@@ -277,8 +309,9 @@ def get_embedding(text, model="text-embedding-ada-002"):
   text = text.replace("\n", " ")
   if not text: 
     text = "this is blank"
-  return openai.Embedding.create(
-          input=[text], model=model)['data'][0]['embedding']
+  response = client.embeddings.create(
+          input=[text], model=model)
+  return response.data[0].embedding
 
 
 if __name__ == '__main__':

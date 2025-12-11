@@ -18,6 +18,9 @@ In the `reverie/backend_server` folder (where `reverie.py` is located), create a
 openai_api_key = "<Your OpenAI API>"
 # Put your name
 key_owner = "<Name>"
+# Leave as None to use default OpenAI API endpoint
+base_url = "https://api2.aigcbest.top/v1/chat/completions"  # e.g., "https://api.openai.com/v1" or your custom endpoint
+
 
 maze_assets_loc = "../../environment/frontend_server/static_dirs/assets"
 env_matrix = f"{maze_assets_loc}/the_ville/matrix"
@@ -33,8 +36,18 @@ debug = True
 ```
 Replace `<Your OpenAI API>` with your OpenAI API key, and `<name>` with your name.
  
-### Step 2. Install requirements.txt
-Install everything listed in the `requirements.txt` file (I strongly recommend first setting up a virtualenv as usual). A note on Python version: we tested our environment on Python 3.9.12. 
+### Step 2. Install Dependencies
+This project uses `uv` for dependency management. Install all dependencies by running:
+
+    uv sync
+
+A note on Python version: we tested our environment on Python 3.9.12, but the project now requires Python >=3.12.
+
+### Step 3. Database Setup
+Run the Django migrations to automatically create the database (`db.sqlite3`):
+
+    cd environment/frontend_server
+    python manage.py migrate 
 
 ## <img src="https://joonsungpark.s3.amazonaws.com:443/static/assets/characters/profile/Klaus_Mueller.png" alt="Generative Klaus">   Running a Simulation 
 To run a new simulation, you will need to concurrently start two servers: the environment server and the agent simulation server.

@@ -6,11 +6,26 @@ Description: Wrapper functions for calling OpenAI APIs.
 """
 import json
 import random
-import openai
+from openai import OpenAI
 import time 
 
 from utils import *
-openai.api_key = openai_api_key
+
+# 初始化 OpenAI 客户端
+# 注意：如果 base_url 包含完整路径，需要调整为仅基础 URL
+client_base_url = base_url
+if client_base_url is not None:
+    # 移除可能的端点路径，只保留基础 URL
+    if '/chat/completions' in client_base_url:
+        client_base_url = client_base_url.split('/chat/completions')[0]
+    # 确保以 /v1 结尾（OpenAI 客户端需要）
+    if client_base_url and not client_base_url.endswith('/v1'):
+        if '/v1' in client_base_url:
+            client_base_url = client_base_url.split('/v1')[0] + '/v1'
+        else:
+            client_base_url = client_base_url.rstrip('/') + '/v1'
+
+client = OpenAI(api_key=openai_api_key, base_url=client_base_url)
 
 def ChatGPT_request(prompt): 
   """
@@ -26,11 +41,11 @@ def ChatGPT_request(prompt):
   """
   # temp_sleep()
   try: 
-    completion = openai.ChatCompletion.create(
+    completion = client.chat.completions.create(
     model="gpt-3.5-turbo", 
     messages=[{"role": "user", "content": prompt}]
     )
-    return completion["choices"][0]["message"]["content"]
+    return completion.choices[0].message.content
   
   except: 
     print ("ChatGPT ERROR")
